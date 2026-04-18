@@ -1,135 +1,186 @@
--- FR HUB | Ultra Stable Desync - No Lag Edition
--- Removed: Rubber Banding, FastRespawn
--- Added: Speed Limiter (Max 28), Single Button, Minimal GUI
+-- FR HUB | Enhanced Desync V10 - Original Style
+-- No kill, no lag, stable at 28 speed
+-- 2 Buttons: GUI Toggle (Center) + Desync Toggle (Right)
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local StarterGui = game:GetService("StarterGui")
 
 -- Settings
-local MaxSpeed = 28  -- Maximum stable speed (user requested under 28)
-local UpdateRate = 0.03  -- 30 FPS for smooth performance
+local MaxSpeed = 28
+local UpdateRate = 0.02  -- 50 FPS for smoothness
 
 -- State
 local IsActive = false
+local GuiVisible = false
 local FakePos = nil
 local DesyncConnection = nil
 local SpeedConnection = nil
 
 -- Notification
-local function Notify(text)
+local function Notify(title, text)
     pcall(function()
         StarterGui:SetCore("SendNotification", {
-            Title = "FR HUB",
+            Title = title,
             Text = text,
-            Duration = 2
+            Duration = 2,
+            Icon = "rbxassetid://9079992154"
         })
     end)
 end
 
 -- Prevent double load
-if _G.FRHUB_STABLE_DESYNC then
-    Notify("السكربت شغال!")
+if _G.FRHUB_ENHANCED_V10 then
+    Notify("FR HUB", "السكربت شغال!")
     return
 end
-_G.FRHUB_STABLE_DESYNC = true
+_G.FRHUB_ENHANCED_V10 = true
 
--- GUI Setup - Ultra Minimal
+-- Main GUI (Hidden by default, shown in center)
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FRHUB_Stable"
+ScreenGui.Name = "FRHUB_Enhanced"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- Main Container (Small)
-local Container = Instance.new("Frame")
-Container.Name = "Container"
-Container.Size = UDim2.new(0, 140, 0, 120)
-Container.Position = UDim2.new(0.85, -70, 0.5, -60)  -- Right center
-Container.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Container.BorderSizePixel = 0
-Container.Parent = ScreenGui
+-- Main Settings Frame (Center, hidden initially)
+local SettingsFrame = Instance.new("Frame")
+SettingsFrame.Name = "SettingsFrame"
+SettingsFrame.Size = UDim2.new(0, 200, 0, 150)
+SettingsFrame.Position = UDim2.new(0.5, -100, 0.5, -75)
+SettingsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+SettingsFrame.BorderSizePixel = 0
+SettingsFrame.Visible = false
+SettingsFrame.Parent = ScreenGui
 
-Instance.new("UICorner", Container).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", SettingsFrame).CornerRadius = UDim.new(0, 10)
 
 -- Title
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 22)
-Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Title.Text = "FR HUB"
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = "FR HUB | Settings"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 12
+Title.TextSize = 14
 Title.Font = Enum.Font.GothamBold
-Title.Parent = Container
+Title.Parent = SettingsFrame
 
-Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 8)
 
--- Toggle Button (Main)
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Name = "Toggle"
-ToggleBtn.Size = UDim2.new(0.9, 0, 0, 35)
-ToggleBtn.Position = UDim2.new(0.05, 0, 0.22, 0)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-ToggleBtn.Text = "تشغيل"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.TextSize = 13
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.Parent = Container
+-- Speed Label
+local SpeedText = Instance.new("TextLabel")
+SpeedText.Size = UDim2.new(1, 0, 0, 25)
+SpeedText.Position = UDim2.new(0, 0, 0.25, 0)
+SpeedText.BackgroundTransparency = 1
+SpeedText.Text = "حد السرعة: " .. MaxSpeed
+SpeedText.TextColor3 = Color3.fromRGB(200, 200, 200)
+SpeedText.TextSize = 12
+SpeedText.Font = Enum.Font.Gotham
+SpeedText.Parent = SettingsFrame
 
-Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 6)
+-- Speed Input
+local SpeedInput = Instance.new("TextBox")
+SpeedInput.Size = UDim2.new(0.6, 0, 0, 30)
+SpeedInput.Position = UDim2.new(0.2, 0, 0.5, 0)
+SpeedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+SpeedInput.Text = tostring(MaxSpeed)
+SpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedInput.TextSize = 14
+SpeedInput.Font = Enum.Font.GothamBold
+SpeedInput.ClearTextOnFocus = true
+SpeedInput.Parent = SettingsFrame
 
--- Speed Display
-local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Size = UDim2.new(1, 0, 0, 18)
-SpeedLabel.Position = UDim2.new(0, 0, 0.55, 0)
-SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "الحد: " .. MaxSpeed
-SpeedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-SpeedLabel.TextSize = 11
-SpeedLabel.Font = Enum.Font.Gotham
-SpeedLabel.Parent = Container
+Instance.new("UICorner", SpeedInput).CornerRadius = UDim.new(0, 6)
 
--- Speed Input (Small)
-local SpeedBox = Instance.new("TextBox")
-SpeedBox.Name = "SpeedBox"
-SpeedBox.Size = UDim2.new(0.5, 0, 0, 25)
-SpeedBox.Position = UDim2.new(0.25, 0, 0.75, 0)
-SpeedBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-SpeedBox.Text = tostring(MaxSpeed)
-SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedBox.TextSize = 12
-SpeedBox.Font = Enum.Font.GothamBold
-SpeedBox.ClearTextOnFocus = true
-SpeedBox.Parent = Container
+-- Info Label
+local InfoLabel = Instance.new("TextLabel")
+InfoLabel.Size = UDim2.new(1, 0, 0, 40)
+InfoLabel.Position = UDim2.new(0, 0, 0.75, 0)
+InfoLabel.BackgroundTransparency = 1
+InfoLabel.Text = "الحد: 16 | الأقصى: 28"
+InfoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+InfoLabel.TextSize = 10
+InfoLabel.Font = Enum.Font.Gotham
+InfoLabel.Parent = SettingsFrame
 
-Instance.new("UICorner", SpeedBox).CornerRadius = UDim.new(0, 4)
+-- Draggable Settings Frame
+local dragging1 = false
+local dragStart1, startPos1
 
--- Draggable
-local dragging = false
-local dragStart, startPos
-
-Container.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = Container.Position
+SettingsFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging1 = true
+        dragStart1 = input.Position
+        startPos1 = SettingsFrame.Position
     end
 end)
 
-Container.InputEnded:Connect(function()
-    dragging = false
+SettingsFrame.InputEnded:Connect(function()
+    dragging1 = false
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        Container.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    if dragging1 and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart1
+        SettingsFrame.Position = UDim2.new(startPos1.X.Scale, startPos1.X.Offset + delta.X, startPos1.Y.Scale, startPos1.Y.Offset + delta.Y)
     end
 end)
 
--- Speed Limiter Function
+-- BUTTON 1: GUI Toggle (Center Screen)
+local GuiToggleBtn = Instance.new("TextButton")
+GuiToggleBtn.Name = "GuiToggle"
+GuiToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+GuiToggleBtn.Position = UDim2.new(0.5, -25, 0.85, 0)  -- Center bottom
+GuiToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+GuiToggleBtn.Text = "⚙️"
+GuiToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GuiToggleBtn.TextSize = 24
+GuiToggleBtn.Font = Enum.Font.GothamBold
+GuiToggleBtn.Parent = ScreenGui
+
+Instance.new("UICorner", GuiToggleBtn).CornerRadius = UDim.new(1, 0)  -- Circle
+
+-- BUTTON 2: Desync Toggle (Right Screen)
+local DesyncBtn = Instance.new("TextButton")
+DesyncBtn.Name = "DesyncToggle"
+DesyncBtn.Size = UDim2.new(0, 100, 0, 50)
+DesyncBtn.Position = UDim2.new(0.9, -50, 0.5, -25)  -- Right center
+DesyncBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+DesyncBtn.Text = "OFF"
+DesyncBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+DesyncBtn.TextSize = 18
+DesyncBtn.Font = Enum.Font.GothamBold
+DesyncBtn.Parent = ScreenGui
+
+Instance.new("UICorner", DesyncBtn).CornerRadius = UDim.new(0, 10)
+
+-- Draggable Desync Button
+local dragging2 = false
+local dragStart2, startPos2
+
+DesyncBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging2 = true
+        dragStart2 = input.Position
+        startPos2 = DesyncBtn.Position
+    end
+end)
+
+DesyncBtn.InputEnded:Connect(function()
+    dragging2 = false
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging2 and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart2
+        DesyncBtn.Position = UDim2.new(startPos2.X.Scale, startPos2.X.Offset + delta.X, startPos2.Y.Scale, startPos2.Y.Offset + delta.Y)
+    end
+end)
+
+-- Speed Limiter
 local function EnableSpeedLimiter()
     if SpeedConnection then SpeedConnection:Disconnect() end
     
@@ -141,8 +192,7 @@ local function EnableSpeedLimiter()
         
         local Hum = Char:FindFirstChildOfClass("Humanoid")
         if not Hum then return end
-        
-        -- Enforce max speed strictly
+
         if Hum.WalkSpeed > MaxSpeed then
             Hum.WalkSpeed = MaxSpeed
         end
@@ -156,42 +206,39 @@ local function DisableSpeedLimiter()
     end
 end
 
--- Core Desync Function (NO RB, NO FastRespawn)
+-- Core Desync (NO kill, NO RB, just pure desync)
 local function StartDesync()
     local Char = LocalPlayer.Character
     if not Char then 
-        Notify("الشخصية غير موجودة")
+        Notify("FR HUB", "الشخصية غير موجودة")
         return false
     end
     
     local HRP = Char:WaitForChild("HumanoidRootPart", 3)
     if not HRP then
-        Notify("HRP غير موجود")
+        Notify("FR HUB", "HRP غير موجود")
         return false
     end
     
-    -- Save fake position (current location)
     FakePos = HRP.Position
     IsActive = true
     
-    -- Enable speed limiter
     EnableSpeedLimiter()
     
-    -- Set initial speed
+    -- Set speed immediately
     local Hum = Char:FindFirstChildOfClass("Humanoid")
     if Hum and Hum.WalkSpeed > MaxSpeed then
         Hum.WalkSpeed = MaxSpeed
     end
     
-    Notify("Desync مفعل! الحد: " .. MaxSpeed)
+    Notify("FR HUB", "Desync مفعل | الحد: " .. MaxSpeed)
     
-    -- Main desync loop - NO RB, just pure desync
+    -- Main loop - Clean and fast
     local lastUpdate = tick()
     
     DesyncConnection = RunService.Heartbeat:Connect(function()
         if not IsActive then return end
         
-        -- Rate limiting
         if tick() - lastUpdate < UpdateRate then return end
         lastUpdate = tick()
         
@@ -202,24 +249,22 @@ local function StartDesync()
         local Humanoid = Character:FindFirstChildOfClass("Humanoid")
         if not Root or not Humanoid then return end
         
-        -- Enforce speed limit
+        -- Strict speed limit
         if Humanoid.WalkSpeed > MaxSpeed then
             Humanoid.WalkSpeed = MaxSpeed
         end
         
-        -- Send fake position to server
+        -- Send fake position
         if FakePos then
             pcall(function()
-                -- Small jitter for anti-detection
                 local jitter = Vector3.new(
-                    (math.random() - 0.5) * 0.2,
+                    (math.random() - 0.5) * 0.15,
                     0,
-                    (math.random() - 0.5) * 0.2
+                    (math.random() - 0.5) * 0.15
                 )
                 
                 Root.CFrame = CFrame.new(FakePos + jitter)
                 
-                -- Network override if available
                 if sethiddenproperty then
                     sethiddenproperty(Root, "NetworkPosition", FakePos)
                 end
@@ -240,54 +285,65 @@ local function StopDesync()
     end
     
     DisableSpeedLimiter()
-    Notify("Desync متوقف")
+    Notify("FR HUB", "Desync متوقف")
 end
 
--- Toggle Handler
-ToggleBtn.MouseButton1Click:Connect(function()
+-- Button 1 Handler: Toggle GUI
+GuiToggleBtn.MouseButton1Click:Connect(function()
+    GuiVisible = not GuiVisible
+    SettingsFrame.Visible = GuiVisible
+    
+    if GuiVisible then
+        GuiToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
+        TweenService:Create(SettingsFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 200, 0, 150)}):Play()
+    else
+        GuiToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    end
+end)
+
+-- Button 2 Handler: Toggle Desync
+DesyncBtn.MouseButton1Click:Connect(function()
     if IsActive then
         StopDesync()
-        ToggleBtn.Text = "تشغيل"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        DesyncBtn.Text = "OFF"
+        DesyncBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+        DesyncBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     else
         local success = StartDesync()
         if success then
-            ToggleBtn.Text = "إيقاف"
-            ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
+            DesyncBtn.Text = "ON"
+            DesyncBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
+            DesyncBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 80)
         end
     end
 end)
 
 -- Speed Input Handler
-SpeedBox.FocusLost:Connect(function()
-    local newSpeed = tonumber(SpeedBox.Text)
+SpeedInput.FocusLost:Connect(function()
+    local newSpeed = tonumber(SpeedInput.Text)
     if newSpeed then
-        -- Limit to safe range (16-28)
         if newSpeed < 16 then newSpeed = 16 end
         if newSpeed > 28 then newSpeed = 28 end
         
         MaxSpeed = newSpeed
-        SpeedBox.Text = tostring(MaxSpeed)
-        SpeedLabel.Text = "الحد: " .. MaxSpeed
+        SpeedInput.Text = tostring(MaxSpeed)
+        SpeedText.Text = "حد السرعة: " .. MaxSpeed
         
-        -- Apply immediately if active
         if IsActive then
             local Char = LocalPlayer.Character
             if Char then
                 local Hum = Char:FindFirstChildOfClass("Humanoid")
-                if Hum then
-                    Hum.WalkSpeed = MaxSpeed
-                end
+                if Hum then Hum.WalkSpeed = MaxSpeed end
             end
         end
         
-        Notify("الحد الجديد: " .. MaxSpeed)
+        Notify("FR HUB", "الحد الجديد: " .. MaxSpeed)
     else
-        SpeedBox.Text = tostring(MaxSpeed)
+        SpeedInput.Text = tostring(MaxSpeed)
     end
 end)
 
--- Auto-restore on respawn
+-- Auto-restore
 LocalPlayer.CharacterAdded:Connect(function()
     if IsActive then
         task.wait(0.3)
@@ -295,5 +351,5 @@ LocalPlayer.CharacterAdded:Connect(function()
     end
 end)
 
--- Initial notification
-Notify("FR HUB جاهز! الحد: " .. MaxSpeed)
+-- Initial
+Notify("FR HUB V10", "⚙️ للإعدادات | OFF/ON للتشغيل")

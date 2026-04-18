@@ -1,150 +1,208 @@
--- FR HUB | Ultra Speed Desync - Extreme Performance Edition
+-- FR HUB | Ultra Speed Desync - Fixed Edition
 -- Handles massive speeds with ZERO lag
--- No speed restrictions - Pure performance
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
+local Workspace = game:GetService("Workspace")
 
--- Ultra-optimized settings
+-- Settings
 local Settings = {
-    UpdateRate = 0.05,      -- 20 FPS - Perfect balance for speed vs performance
-    PositionJitter = 0.5,   -- Small random offset for anti-detection
+    UpdateRate = 0.05,      -- 50ms = 20 FPS
+    PositionJitter = 0.3,   -- Small random offset
 }
 
 -- State
 local IsActive = false
 local FakePos = nil
-local Thread = nil
+local LoopConnection = nil
 
--- Ultra-light notification
+-- Notification
 local function Notify(text)
     pcall(function()
         StarterGui:SetCore("SendNotification", {
             Title = "FR HUB",
             Text = text,
-            Duration = 1.5
+            Duration = 2
         })
     end)
 end
 
 -- Prevent double load
-if _G.FRHUB_ULTRA_SPEED then return end
-_G.FRHUB_ULTRA_SPEED = true
+if _G.FRHUB_ULTRA_FIXED then
+    Notify("السكربت شغال!")
+    return
+end
+_G.FRHUB_ULTRA_FIXED = true
 
--- Minimal GUI - Single button
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FRHUB_Ultra"
+ScreenGui.Name = "FRHUB_Fixed"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
+-- Main Frame
+local Frame = Instance.new("Frame")
+Frame.Name = "MainFrame"
+Frame.Size = UDim2.new(0, 160, 0, 80)
+Frame.Position = UDim2.new(0.8, 0, 0.4, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BorderSizePixel = 0
+Frame.Parent = ScreenGui
+
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 10)
+
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 25)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = "FR HUB | Desync"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 12
+Title.Font = Enum.Font.GothamBold
+Title.Parent = Frame
+
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 8)
+
+-- Toggle Button
 local Toggle = Instance.new("TextButton")
-Toggle.Size = UDim2.new(0, 100, 0, 40)
-Toggle.Position = UDim2.new(0.9, -50, 0.5, -20)
-Toggle.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Toggle.Text = "OFF"
-Toggle.TextColor3 = Color3.fromRGB(255, 50, 50)
-Toggle.TextSize = 16
+Toggle.Name = "ToggleBtn"
+Toggle.Size = UDim2.new(0.9, 0, 0, 40)
+Toggle.Position = UDim2.new(0.05, 0, 0.38, 0)
+Toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+Toggle.Text = "تفعيل الاختفاء"
+Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+Toggle.TextSize = 14
 Toggle.Font = Enum.Font.GothamBold
-Toggle.Parent = ScreenGui
+Toggle.Parent = Frame
 
 Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0, 8)
 
--- Draggable
-local drag, dragStart, startPos = false, nil, nil
-local UserInputService = game:GetService("UserInputService")
+-- Draggable Frame
+local dragging = false
+local dragStart, startPos
 
-Toggle.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        drag = true
+Frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
         dragStart = input.Position
-        startPos = Toggle.Position
+        startPos = Frame.Position
     end
 end)
 
-Toggle.InputEnded:Connect(function() drag = false end)
-
-RunService.RenderStepped:Connect(function()
-    if drag and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
-        local delta = UserInputService:GetMouseLocation() - dragStart
-        Toggle.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, 
-                                      startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+Frame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
     end
 end)
 
--- CORE: Ultra-fast desync engine
-local function UltraDesync()
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- CORE DESYNC FUNCTION
+local function StartDesync()
     local Character = LocalPlayer.Character
-    if not Character then return end
+    if not Character then 
+        Notify("الشخصية غير موجودة")
+        return false
+    end
     
-    local HRP = Character:FindFirstChild("HumanoidRootPart")
-    if not HRP then return end
+    local HRP = Character:WaitForChild("HumanoidRootPart", 3)
+    if not HRP then
+        Notify("لم يتم العثور على HRP")
+        return false
+    end
     
-    -- Capture position once
+    -- Save fake position
     FakePos = HRP.Position
-
-    -- Ultra-lightweight thread
-    Thread = task.spawn(function()
-        while IsActive do
-            local Char = LocalPlayer.Character
-            if not Char then task.wait(Settings.UpdateRate) continue end
+    IsActive = true
+    
+    Notify("الاختفاء مفعل! تحرك بحرية")
+    
+    -- Main loop using Heartbeat but with controlled rate
+    local lastUpdate = tick()
+    
+    LoopConnection = RunService.Heartbeat:Connect(function()
+        if not IsActive then return end
+        
+        -- Control update rate manually
+        if tick() - lastUpdate < Settings.UpdateRate then return end
+        lastUpdate = tick()
+        
+        local Char = LocalPlayer.Character
+        if not Char then return end
+        
+        local Root = Char:FindFirstChild("HumanoidRootPart")
+        if not Root then return end
+        
+        -- Send fake position
+        pcall(function()
+            -- Add tiny jitter
+            local jitterX = (math.random() - 0.5) * Settings.PositionJitter
+            local jitterZ = (math.random() - 0.5) * Settings.PositionJitter
+            local FakeWithJitter = FakePos + Vector3.new(jitterX, 0, jitterZ)
             
-            local Root = Char:FindFirstChild("HumanoidRootPart")
-            if not Root then task.wait(Settings.UpdateRate) continue end
+            -- Method 1: Set CFrame directly
+            Root.CFrame = CFrame.new(FakeWithJitter)
             
-            -- Method 1: Direct position spoof (fastest)
-            pcall(function()
-                local Jitter = Vector3.new(
-                    math.random(-10, 10) * 0.01,
-                    0,
-                    math.random(-10, 10) * 0.01
-                ) * Settings.PositionJitter
-                
-                Root.CFrame = CFrame.new(FakePos + Jitter)
-            end)
-            
-            -- Method 2: Network override (if available)
-            pcall(function()
+            -- Method 2: Network spoof (if supported)
+            if sethiddenproperty then
                 sethiddenproperty(Root, "NetworkPosition", FakePos)
-            end)
-            
-            task.wait(Settings.UpdateRate)
-        end
+            end
+        end)
     end)
+    
+    return true
 end
 
 local function StopDesync()
     IsActive = false
     FakePos = nil
-    Thread = nil
+    
+    if LoopConnection then
+        LoopConnection:Disconnect()
+        LoopConnection = nil
+    end
+    
+    Notify("الاختفاء متوقف")
 end
 
 -- Toggle handler
 Toggle.MouseButton1Click:Connect(function()
-    IsActive = not IsActive
-    
     if IsActive then
-        Toggle.Text = "ON"
-        Toggle.TextColor3 = Color3.fromRGB(0, 255, 100)
-        Toggle.BackgroundColor3 = Color3.fromRGB(10, 40, 10)
-        Notify("Desync Active - Extreme Speed Ready!")
-        UltraDesync()
-    else
-        Toggle.Text = "OFF"
-        Toggle.TextColor3 = Color3.fromRGB(255, 50, 50)
-        Toggle.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-        Notify("Desync Stopped")
+        -- Turn off
         StopDesync()
+        Toggle.Text = "تفعيل الاختفاء"
+        Toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    else
+        -- Turn on
+        local success = StartDesync()
+        if success then
+            Toggle.Text = "إيقاف الاختفاء"
+            Toggle.BackgroundColor3 = Color3.fromRGB(0, 150, 100)
+        end
     end
 end)
 
--- Auto-restore on death
-LocalPlayer.CharacterAdded:Connect(function()
+-- Auto-restore on respawn
+LocalPlayer.CharacterAdded:Connect(function(newChar)
     if IsActive then
-        task.wait(0.2)
-        UltraDesync()
+        task.wait(0.5)
+        -- Reset fake position to new spawn location
+        local HRP = newChar:WaitForChild("HumanoidRootPart", 3)
+        if HRP then
+            FakePos = HRP.Position
+            Notify("تم استعادة الاختفاء")
+        end
     end
 end)
 
-Notify("FR HUB Ultra - Ready for Extreme Speeds!")
+-- Initial notification
+Notify("FR HUB جاهز! اضغط تفعيل")
